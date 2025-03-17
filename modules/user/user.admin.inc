@@ -317,6 +317,18 @@ function user_admin_settings() {
     '#description' => t('This role will be automatically assigned new permissions whenever a module is enabled. Changing this setting will not affect existing permissions.'),
   );
 
+  // Settings for separating the administer users and edit user settings.
+  $form['permission_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Separate administer account settings permission'),
+  );
+  $form['permission_settings']['user_enable_separate_account_settings'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Separate administer account settings permission'),
+    '#default_value' => variable_get('user_enable_separate_account_settings', FALSE),
+    '#description' => t('With this option you can have seperate permissions for editing this page and for administering users.'),
+  );
+
   // User registration settings.
   $form['registration_cancellation'] = array(
     '#type' => 'fieldset',
@@ -675,8 +687,26 @@ function user_admin_settings() {
     '#default_value' => _user_mail_text('status_canceled_body', NULL, array(), FALSE),
     '#rows' => 3,
   );
+  $form['#submit'][] = 'user_admin_settings_submit';
 
   return system_settings_form($form);
+}
+
+/**
+ * Form submit handler for the user_admin_settings() form.
+ */
+function user_admin_settings_submit($form, $form_state) {
+  // If we are changing the settings for separating the administer users and
+  // account settings we have to clear the menu cache to make the new access
+  // arguments take effect.
+  if ((bool) $form_state['values']['user_enable_separate_account_settings'] != (bool) variable_get('user_enable_separate_account_settings', FALSE)) {
+    // Since the actual saving of the variable will happen in the form submit
+    // provided by system_settings_form, we just override the $conf value for
+    // now, so the hook_menu implementation knows what to do.
+    $GLOBALS['conf'] ['user_enable_separate_account_settings'] = $form_state['values']['user_enable_separate_account_settings'];
+    entity_info_cache_clear();
+    menu_rebuild();
+  }
 }
 
 /**

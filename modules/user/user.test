@@ -1853,6 +1853,40 @@ class UserAdminTestCase extends DrupalWebTestCase {
     $this->assertEqual($account1->status, 1, 'User D unblocked');
     $this->assertMail("to", $account1->mail, "Activation mail sent to user D");
   }
+
+  /**
+   * Test separating the user settings from user administering.
+   */
+  function testSeparateAccountSettings() {
+    // First see that the admin user can access the account settings page.
+    $admin_user = $this->drupalCreateUser(array('administer users'));
+    // Find the new role ID - it must be the maximum.
+    $all_rids = array_keys($admin_user->roles);
+    sort($all_rids);
+    $rid = array_pop($all_rids);
+    $this->drupalLogin($admin_user);
+    $this->drupalGet('admin/config/people/accounts');
+    $this->assertResponse(200);
+
+    // Change settings.
+    $edit['user_enable_separate_account_settings'] = 1;
+    $this->drupalPost('admin/config/people/accounts', $edit, t('Save configuration'));
+    $this->assertText(t('The configuration options have been saved.'), 'Successful save message displayed.');
+    // Interestingly enough, this should actually make the user not have access
+    // to the page they are looking at.
+    $this->assertResponse(403);
+    // Just to be sure, let's also try to go to the page, and see that we get
+    // "access denied" still.
+    $this->drupalGet('admin/config/people/accounts');
+    $this->assertResponse(403);
+
+    // Then add the permission in question.
+    user_role_grant_permissions($rid, array('administer account settings'));
+    // We should now be allowed again.
+    $this->drupalGet('admin/config/people/accounts');
+    $this->assertResponse(200);
+
+  }
 }
 
 /**

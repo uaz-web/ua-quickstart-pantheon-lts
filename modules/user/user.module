@@ -183,6 +183,9 @@ function user_entity_info() {
       ),
     ),
   );
+  if (variable_get('user_enable_separate_account_settings', FALSE)) {
+    $return['user']['bundles']['user']['admin']['access arguments'] = array('administer account settings');
+  }
   return $return;
 }
 
@@ -879,7 +882,7 @@ function user_has_role($rid, $account = NULL) {
  * Implements hook_permission().
  */
 function user_permission() {
-  return array(
+  $perms = array(
     'administer permissions' =>  array(
       'title' => t('Administer permissions'),
       'restrict access' => TRUE,
@@ -903,6 +906,16 @@ function user_permission() {
       'restrict access' => TRUE,
     ),
   );
+  // If the option for separating the account settings and administering users
+  // is enabled, then we must include another permission for this.
+  if (variable_get('user_enable_separate_account_settings', FALSE)) {
+    $perms['administer account settings'] = array(
+      'title' => t('Administer account settings'),
+      'description' => t('Manage settings that apply to all user accounts.'),
+      'restrict access' => TRUE,
+    );
+  }
+  return $perms;
 }
 
 /**
@@ -1797,6 +1810,11 @@ function user_menu() {
     'file' => 'user.admin.inc',
     'weight' => -10,
   );
+  // If the option for separating the account settings and administering users
+  // is enabled, then we change the access argument for this item.
+  if (variable_get('user_enable_separate_account_settings', FALSE)) {
+    $items['admin/config/people/accounts']['access arguments'] = array('administer account settings');
+  }
   $items['admin/config/people/accounts/settings'] = array(
     'title' => 'Settings',
     'type' => MENU_DEFAULT_LOCAL_TASK,
