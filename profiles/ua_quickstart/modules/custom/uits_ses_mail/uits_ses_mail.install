@@ -1,0 +1,26 @@
+<?php
+/**
+ * @file
+ * The installation file for uits_ses_mail module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function uits_ses_mail_install() {
+  module_enable(array('awssdk_ui'));
+}
+
+/**
+ * Implements hook_enable().
+ */
+function uits_ses_mail_enable() {
+  variable_set('amazon_ses_region', 'email.us-west-2.amazonaws.com');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uits_ses_mail_uninstall() {
+  variable_del('amazon_ses_region');
+}

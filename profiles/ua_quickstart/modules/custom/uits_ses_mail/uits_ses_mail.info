@@ -1,0 +1,5 @@
+name = UITS Amazon SES Module
+description = Pre-configures and patches Amazon SES module.
+core = 7.x
+package = The University of Arizona
+dependencies[] = amazon_ses
