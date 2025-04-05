@@ -4,9 +4,9 @@ package = Mail
 core = 7.x
 hidden = TRUE
 
-; Information added by Drupal.org packaging script on 2017-06-27
-version = "7.x-1.7"
-core = "7.x"
-project = "smtp"
-datestamp = "1498593247"
+files[] = smtp_tests.mail.inc
+test_dependencies[] = smtp
 
+version = 7.x-1.10
+project = smtp
+datestamp = 1743618095
