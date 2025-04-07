@@ -9,10 +9,3 @@ files[] = coffee.hooks.inc
 dependencies[] = menu
 
 configure = admin/config/user-interface/coffee
-
-; Information added by Drupal.org packaging script on 2016-10-25
-version = "7.x-2.3"
-core = "7.x"
-project = "coffee"
-datestamp = "1477415040"
-
