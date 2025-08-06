@@ -1,6 +1,6 @@
 // An example Backbone application contributed by
 // [Jérôme Gravel-Niquet](http://jgn.me/). This demo uses a simple
-// [LocalStorage adapter](backbone-localstorage.html)
+// [LocalStorage adapter](backbone.localStorage.html)
 // to persist Backbone models within your browser.
 
 // Load the application once the DOM is ready, using `jQuery.ready`:
@@ -48,7 +48,7 @@ $(function(){
 
     // Filter down the list to only todo items that are still not finished.
     remaining: function() {
-      return this.without.apply(this, this.done());
+      return this.where({done: false});
     },
 
     // We keep the Todos in sequential order, despite being saved by unordered
