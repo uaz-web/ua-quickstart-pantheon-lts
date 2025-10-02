@@ -4,9 +4,6 @@
 /files/*
 /cache
 
-/vendor
-/.ddev
-
 # ** Only works in OSs that support newer versions of fnmatch (Bash 4+)
 /sites/default/**/files
 /sites/default/**/private
