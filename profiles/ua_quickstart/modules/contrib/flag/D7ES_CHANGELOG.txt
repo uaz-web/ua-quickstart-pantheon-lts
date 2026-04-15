@@ -1,6 +1,10 @@
 Flag 7.x-3.x, xxxx-xx-xx (development version)
 -----------------------
 
+Flag 7.x-3.11, 2026-04-15
+-----------------------
+- Security: Add rate limiting on flagging operations.
+
 Flag 7.x-3.10, 2025-04-16
 -----------------------
 - Fixed XSS via AJAX request in flag.js

@@ -702,3 +702,26 @@ function flag_update_7306() {
     $flag->save();
   }
 }
+
+/**
+ * Set default flood control settings on all flags.
+ *
+ * Flood control options are stored in the serialized {flag}.options column.
+ * Existing flags already get the defaults from flag_flag::options(), so this
+ * update is a no-op for schema purposes; it exists to explicitly persist the
+ * defaults so that exported flag definitions include flood control settings.
+ */
+function flag_update_7307() {
+  foreach (flag_get_flags() as $flag) {
+    if (!isset($flag->flood_control_active)) {
+      $flag->flood_control_active = FALSE;
+    }
+    if (!isset($flag->flood_control_limit)) {
+      $flag->flood_control_limit = 0;
+    }
+    if (!isset($flag->flood_control_window)) {
+      $flag->flood_control_window = 0;
+    }
+    $flag->save();
+  }
+}

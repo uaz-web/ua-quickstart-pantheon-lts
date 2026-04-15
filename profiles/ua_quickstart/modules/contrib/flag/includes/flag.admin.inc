@@ -489,6 +489,37 @@ function flag_form($form, &$form_state, $flag) {
     '#weight' => -1,
   );
 
+  $form['flood_control'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Flood control'),
+    '#tree' => FALSE,
+    '#weight' => 15,
+    '#collapsible' => TRUE,
+    '#collapsed' => empty($flag->flood_control_active),
+  );
+
+  $form['flood_control']['flood_control_active'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable flood control for this flag'),
+    '#default_value' => (int) (!empty($flag->flood_control_active)),
+  );
+
+  $form['flood_control']['flood_control_limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of flaggings per time window'),
+    '#default_value' => (int) (!empty($flag->flood_control_limit) ? $flag->flood_control_limit : 0),
+    '#size' => 10,
+    '#maxlength' => 10,
+  );
+
+  $form['flood_control']['flood_control_window'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Time window in seconds'),
+    '#default_value' => (int) (!empty($flag->flood_control_window) ? $flag->flood_control_window : 0),
+    '#size' => 10,
+    '#maxlength' => 10,
+  );
+
   $form['display'] = array(
     '#type' => 'fieldset',
     '#title' => t('Display options'),
