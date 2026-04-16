@@ -603,6 +603,11 @@ function flag_permission() {
       'description' => t('Access the flag import functionality.'),
       'restrict access' => TRUE,
     ),
+    'bypass flagging flood control' => array(
+      'title' => t('Bypass the flagging flood control'),
+      'description' => t('Bypass the flagging flood control.'),
+      'restrict access' => TRUE,
+    ),
   );
 
   // Reset static cache to ensure all flag permissions are available.
@@ -1581,6 +1586,13 @@ function template_preprocess_flag(&$variables) {
   // Replace the link with the access denied text if unable to flag.
   if ($action == 'unflag' && !$flag->access($entity_id, 'unflag')) {
     $link['title'] = $flag->get_label('unflag_denied_text', $entity_id);
+    unset($link['href']);
+  }
+
+  // When flood control is active and the limit is exceeded, strip the href so
+  // the flag text remains visible as disabled text (a <span> instead of <a>),
+  // matching D10's render-blocking behaviour. Applies to both flag and unflag.
+  if (isset($link['href']) && !$flag->flood_control_access()) {
     unset($link['href']);
   }
 

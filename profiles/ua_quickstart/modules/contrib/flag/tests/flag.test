@@ -1807,3 +1807,444 @@ class FlagCommentOptimizationTestCase extends FlagTestCaseBase {
   }
 
 }
+
+/**
+ * Base class for flood control tests providing shared helpers.
+ */
+abstract class FlagFloodControlTestBase extends FlagTestCaseBase {
+
+  /**
+   * Creates a node of type 'article' suitable for flagging tests.
+   *
+   * @return stdClass
+   *   The saved node object.
+   */
+  protected function createArticleNode() {
+    $node = array(
+      'title' => $this->randomName(8),
+      'body' => array(LANGUAGE_NONE => array(array('value' => $this->randomName(32)))),
+      'uid' => 1,
+      'type' => 'article',
+      'is_new' => TRUE,
+    );
+    $node = node_submit((object) $node);
+    node_save($node);
+    return $node;
+  }
+
+  /**
+   * Creates a flag with flood control active.
+   *
+   * @param int $limit
+   *   Maximum number of flaggings allowed within the window.
+   * @param int $window
+   *   Time window in seconds.
+   *
+   * @return flag_flag
+   *   The flag object.
+   */
+  protected function createFloodFlag($limit = 2, $window = 3600) {
+    $flag_data = array(
+      'entity_type' => 'node',
+      'name' => 'flood_flag',
+      'title' => 'Flood Flag',
+      'global' => 0,
+      'types' => array('article'),
+      'flag_short' => 'Flag this item',
+      'flag_long' => '',
+      'flag_message' => '',
+      'unflag_short' => 'Unflag this item',
+      'unflag_long' => '',
+      'unflag_message' => '',
+      'unflag_denied_text' => '',
+      'link_type' => 'normal',
+      'weight' => 0,
+      'show_on_form' => 0,
+      'access_author' => '',
+      'show_contextual_link' => 0,
+      'show_in_links' => array('full' => 1, 'teaser' => 1),
+      'i18n' => 0,
+      'api_version' => 3,
+      'flood_control_active' => TRUE,
+      'flood_control_limit' => $limit,
+      'flood_control_window' => $window,
+    );
+    return $this->createFlag($flag_data);
+  }
+
+  /**
+   * Returns a flood event count for the given user and flag.
+   *
+   * @param stdClass $account
+   *   The user account.
+   * @param flag_flag $flag
+   *   The flag object.
+   *
+   * @return int
+   *   Number of flood events currently registered.
+   */
+  protected function getFloodCount($account, $flag) {
+    $identifier = $account->uid . '-' . $flag->name;
+    return (int) db_query(
+      "SELECT COUNT(*) FROM {flood} WHERE event = :event AND identifier = :identifier",
+      array(':event' => 'flag.flagging', ':identifier' => $identifier)
+    )->fetchField();
+  }
+
+}
+
+/**
+ * Tests flood control API: flood_control_access(), access(), and registration.
+ */
+class FlagFloodControlApiTestCase extends FlagFloodControlTestBase {
+
+  protected $flag;
+  protected $node;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Flood control API',
+      'description' => 'Tests flood_control_access(), access(), and flood event registration on flags.',
+      'group' => 'Flag',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('flag');
+    $this->flag = $this->createFloodFlag(2, 3600);
+    $this->node = $this->createArticleNode();
+  }
+
+  /**
+   * New flags have flood control disabled with zero limit and window.
+   */
+  function testFloodControlDefaults() {
+    $flag_data = array(
+      'entity_type' => 'node',
+      'name' => 'default_flag',
+      'title' => 'Default Flag',
+      'global' => 0,
+      'types' => array('article'),
+      'flag_short' => 'Flag this item',
+      'flag_long' => '',
+      'flag_message' => '',
+      'unflag_short' => 'Unflag this item',
+      'unflag_long' => '',
+      'unflag_message' => '',
+      'unflag_denied_text' => '',
+      'link_type' => 'normal',
+      'weight' => 0,
+      'api_version' => 3,
+    );
+    $flag = $this->createFlag($flag_data);
+
+    $this->assertFalse((bool) $flag->flood_control_active, 'Flood control is inactive by default.');
+    $this->assertEqual((int) $flag->flood_control_limit, 0, 'Flood control limit defaults to 0.');
+    $this->assertEqual((int) $flag->flood_control_window, 0, 'Flood control window defaults to 0.');
+  }
+
+  /**
+   * flood_control_access() transitions from allowed to denied as events stack.
+   */
+  function testFloodControlAccess() {
+    $user = $this->drupalCreateUser(array('flag flood_flag', 'unflag flood_flag'));
+    $identifier = $user->uid . '-' . $this->flag->name;
+
+    // No events registered yet — access must be allowed.
+    $this->assertTrue(
+      $this->flag->flood_control_access($user),
+      'Flood control allows flagging before any events are registered.'
+    );
+
+    // Register one event — still below the limit of 2.
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+    $this->assertTrue(
+      $this->flag->flood_control_access($user),
+      'Flood control allows flagging after one event (below limit).'
+    );
+
+    // Register a second event — now at the limit.
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+    $this->assertFalse(
+      $this->flag->flood_control_access($user),
+      'Flood control denies flagging after two events (at limit).'
+    );
+  }
+
+  /**
+   * Users with the bypass permission are never blocked by flood control.
+   */
+  function testFloodControlBypassPermission() {
+    $bypass_user = $this->drupalCreateUser(array(
+      'flag flood_flag',
+      'unflag flood_flag',
+      'bypass flagging flood control',
+    ));
+    $identifier = $bypass_user->uid . '-' . $this->flag->name;
+
+    // Exhaust the flood limit for the bypass user.
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+
+    $this->assertTrue(
+      $this->flag->flood_control_access($bypass_user),
+      'User with "bypass flagging flood control" can still flag after the limit is reached.'
+    );
+  }
+
+  /**
+   * flood_control_access() always returns TRUE when flood control is inactive.
+   */
+  function testFloodControlInactiveIgnored() {
+    $flag_data = array(
+      'entity_type' => 'node',
+      'name' => 'no_flood_flag',
+      'title' => 'No Flood Flag',
+      'global' => 0,
+      'types' => array('article'),
+      'flag_short' => 'Flag this item',
+      'flag_long' => '',
+      'flag_message' => '',
+      'unflag_short' => 'Unflag this item',
+      'unflag_long' => '',
+      'unflag_message' => '',
+      'unflag_denied_text' => '',
+      'link_type' => 'normal',
+      'weight' => 0,
+      'api_version' => 3,
+      'flood_control_active' => FALSE,
+    );
+    $flag = $this->createFlag($flag_data);
+    $user = $this->drupalCreateUser(array('flag no_flood_flag', 'unflag no_flood_flag'));
+    $identifier = $user->uid . '-' . $flag->name;
+
+    // Register more events than any sane limit.
+    for ($i = 0; $i < 10; $i++) {
+      flood_register_event('flag.flagging', 3600, $identifier);
+    }
+
+    $this->assertTrue(
+      $flag->flood_control_access($user),
+      'flood_control_access() returns TRUE when flood control is inactive, regardless of event count.'
+    );
+    $this->assertTrue(
+      $flag->access($this->node->nid, 'flag', $user),
+      'access() is unaffected by flood events (flood control is render-blocking, not access-blocking).'
+    );
+  }
+
+  /**
+   * Flood events are registered on flag and not on unflag.
+   *
+   * Flood control is render-blocking (not access-blocking), so flag() still
+   * succeeds programmatically even after the limit is reached.
+   */
+  function testFloodEventRegistration() {
+    $user = $this->drupalCreateUser(array('flag flood_flag', 'unflag flood_flag'));
+
+    // Start with zero events.
+    $this->assertEqual($this->getFloodCount($user, $this->flag), 0, 'No flood events before any flagging.');
+
+    // First flagging registers one event.
+    $this->flag->flag('flag', $this->node->nid, $user);
+    $this->assertEqual($this->getFloodCount($user, $this->flag), 1, 'One flood event after first flagging.');
+
+    // Unflagging does not register a flood event.
+    $this->flag->flag('unflag', $this->node->nid, $user);
+    $this->assertEqual($this->getFloodCount($user, $this->flag), 1, 'Flood count unchanged after unflagging.');
+
+    // Second flagging registers a second event (now at the limit of 2).
+    $this->flag->flag('flag', $this->node->nid, $user);
+    $this->assertEqual($this->getFloodCount($user, $this->flag), 2, 'Two flood events after second flagging.');
+  }
+
+}
+
+/**
+ * Tests flood control settings are saved and displayed correctly in the admin UI.
+ */
+class FlagFloodControlAdminTestCase extends FlagFloodControlTestBase {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Flood control admin UI',
+      'description' => 'Tests that flood control settings appear in and are saved via the flag admin form.',
+      'group' => 'Flag',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('flag');
+    $admin_user = $this->drupalCreateUser(array('access administration pages', 'administer flags'));
+    $this->drupalLogin($admin_user);
+  }
+
+  /**
+   * Flood control fields appear in the admin form with correct defaults.
+   */
+  function testFloodControlFieldsPresent() {
+    // Create a flag via the API so we can inspect its edit form.
+    $flag_data = array(
+      'entity_type' => 'node',
+      'name' => 'admin_flood_flag',
+      'title' => 'Admin Flood Flag',
+      'global' => 0,
+      'types' => array('article'),
+      'flag_short' => 'Flag this item',
+      'flag_long' => '',
+      'flag_message' => '',
+      'unflag_short' => 'Unflag this item',
+      'unflag_long' => '',
+      'unflag_message' => '',
+      'unflag_denied_text' => '',
+      'link_type' => 'normal',
+      'weight' => 0,
+      'api_version' => 3,
+    );
+    $flag = $this->createFlag($flag_data);
+
+    $this->drupalGet(FLAG_ADMIN_PATH . '/manage/' . $flag->name);
+
+    $this->assertNoFieldChecked('edit-flood-control-active', 'Flood control checkbox is present and unchecked by default.');
+    $this->assertFieldByName('flood_control_limit', 0, 'Flood control limit field is present with default value 0.');
+    $this->assertFieldByName('flood_control_window', 0, 'Flood control window field is present with default value 0.');
+  }
+
+  /**
+   * Flood control settings submitted via the form are persisted correctly.
+   */
+  function testFloodControlAdminSave() {
+    $flag_data = array(
+      'entity_type' => 'node',
+      'name' => 'save_flood_flag',
+      'title' => 'Save Flood Flag',
+      'global' => 0,
+      'types' => array('article'),
+      'flag_short' => 'Flag this item',
+      'flag_long' => '',
+      'flag_message' => '',
+      'unflag_short' => 'Unflag this item',
+      'unflag_long' => '',
+      'unflag_message' => '',
+      'unflag_denied_text' => '',
+      'link_type' => 'normal',
+      'weight' => 0,
+      'api_version' => 3,
+    );
+    $flag = $this->createFlag($flag_data);
+
+    // Submit the edit form with flood control enabled.
+    $edit = array(
+      'flood_control_active' => 1,
+      'flood_control_limit' => 5,
+      'flood_control_window' => 7200,
+    );
+    $this->drupalPost(FLAG_ADMIN_PATH . '/manage/' . $flag->name, $edit, t('Save flag'));
+
+    // Reload from database and verify all three settings were persisted.
+    drupal_static_reset('flag_get_flags');
+    $flag = flag_get_flag($flag->name);
+
+    $this->assertTrue((bool) $flag->flood_control_active, 'Flood control active setting was saved correctly.');
+    $this->assertEqual((int) $flag->flood_control_limit, 5, 'Flood control limit was saved correctly.');
+    $this->assertEqual((int) $flag->flood_control_window, 7200, 'Flood control window was saved correctly.');
+
+    // Now disable flood control through the form and verify it is turned off.
+    $edit = array(
+      'flood_control_active' => FALSE,
+      'flood_control_limit' => 0,
+      'flood_control_window' => 0,
+    );
+    $this->drupalPost(FLAG_ADMIN_PATH . '/manage/' . $flag->name, $edit, t('Save flag'));
+
+    drupal_static_reset('flag_get_flags');
+    $flag = flag_get_flag($flag->name);
+
+    $this->assertFalse((bool) $flag->flood_control_active, 'Flood control can be disabled through the admin form.');
+  }
+
+}
+
+/**
+ * Tests flood control via the flag link: the link disappears when the limit
+ * is reached, matching the behavior of the D11 FlagFloodTest.
+ */
+class FlagFloodControlLinkTestCase extends FlagFloodControlTestBase {
+
+  protected $flag;
+  protected $node;
+  protected $webUser;
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Flood control link behavior',
+      'description' => 'Tests that the flag link is hidden once the flood limit is reached.',
+      'group' => 'Flag',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('flag');
+
+    // Limit: 2 flaggings within a 1-hour window.
+    $this->flag = $this->createFloodFlag(2, 3600);
+    $this->node = $this->createArticleNode();
+
+    // Create a regular user who can flag and unflag.
+    $this->webUser = $this->drupalCreateUser(array(
+      'access content',
+      'flag flood_flag',
+      'unflag flood_flag',
+    ));
+  }
+
+  /**
+   * After hitting the flood limit neither the flag nor the unflag link renders.
+   *
+   * Sequence: flag → unflag → flag (limit hit) → no links shown.
+   * Flood control is render-blocking, so both flag and unflag links disappear
+   * once the limit is exceeded, matching D11 behaviour.
+   */
+  function testFlagLinkHiddenAfterLimit() {
+    $this->drupalLogin($this->webUser);
+
+    // ---- First flagging ----
+    $this->drupalGet('node/' . $this->node->nid);
+    $this->assertLink('Flag this item', 0, 'Flag link is present before any flagging.');
+    $this->clickLink(t('Flag this item'));
+
+    // ---- First unflagging ----
+    $this->assertLink('Unflag this item', 0, 'Unflag link appears after first flagging.');
+    $this->clickLink(t('Unflag this item'));
+
+    // ---- Second flagging — this fills the flood bucket ----
+    $this->assertLink('Flag this item', 0, 'Flag link re-appears after first unflagging.');
+    $this->clickLink(t('Flag this item'));
+
+    // ---- After the limit is exhausted neither link is rendered ----
+    $this->assertNoLink('Unflag this item', 'Unflag link is no longer rendered after the flood limit is reached.');
+    $this->assertNoLink('Flag this item', 'Flag link is no longer rendered after the flood limit is reached.');
+  }
+
+  /**
+   * A user with the bypass permission always sees the flag link.
+   */
+  function testBypassUserAlwaysSeesLink() {
+    $bypass_user = $this->drupalCreateUser(array(
+      'access content',
+      'flag flood_flag',
+      'unflag flood_flag',
+      'bypass flagging flood control',
+    ));
+    $this->drupalLogin($bypass_user);
+
+    // Exhaust the flood limit directly so we don't rely on link clicks.
+    $identifier = $bypass_user->uid . '-' . $this->flag->name;
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+    flood_register_event('flag.flagging', $this->flag->flood_control_window, $identifier);
+
+    $this->drupalGet('node/' . $this->node->nid);
+    $this->assertLink('Flag this item', 0, 'Bypass user still sees the flag link after the flood limit is reached.');
+  }
+
+}
