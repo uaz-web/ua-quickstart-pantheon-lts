@@ -7,9 +7,8 @@
   and is configured so that Tag1's notifications are sent to ServiceNow and 
   create tickets for our team)
 * To apply updates, do NOT just overwrite the current version of a module with 
-  the latest version of the module--if doing this, you risk overwriting patches 
-  that Quickstart depends on. If Tag1's notification email provides a patchfile, 
-  for their fix, just apply that. 
+  that Quickstart depends on. If Tag1's notification email provides a patchfile
+  for their fix, just apply that.
 * If a patchfile is NOT provided for the fix:
   - download the latest version of the affected module from Tag1
   - check which version of the module is in this repo. download a fresh copy of 
