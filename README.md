@@ -11,8 +11,8 @@
   that Quickstart depends on. If Tag1's notification email provides a patchfile, 
   for their fix, just apply that. 
 * If a patchfile is NOT provided for the fix:
-    1. download the latest version of the affected module from Tag1
-    2. check which version of the module is in this repo. download a fresh copy of
-       this version of the module from drupal.org
-    3. in terminal, use diff to compare the two versions of the module and use the
-       resulting differences to patch this repository.
+  - download the latest version of the affected module from Tag1
+  - check which version of the module is in this repo. download a fresh copy of 
+    this version of the module from drupal.org
+  - in terminal, use diff to compare the two versions of the module and use the
+    resulting differences to patch this repository.
