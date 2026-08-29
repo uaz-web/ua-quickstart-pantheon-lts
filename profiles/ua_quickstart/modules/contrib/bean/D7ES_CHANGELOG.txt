@@ -1,0 +1,6 @@
+Bean (for Drupal 7) 7.x-1.x, xxxx-xx-xx (development version)
+-----------------------
+
+Bean (for Drupal 7) 7.x-1.14, 2026-08-26
+-----------------------
+- Security: Addresses stored Cross Site Scripting via unsanitized bean title output on the standalone view page.

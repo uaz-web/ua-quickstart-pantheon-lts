@@ -1,0 +1,16 @@
+{
+  "name": "drupal/bean",
+  "type": "drupal-module",
+  "description": "Create Bean (Block Entities)",
+  "keywords": ["Drupal"],
+  "license": "GPL-2.0+",
+  "authors": [],
+  "support": {},
+  "require": {
+    "drupal/ctools": "^1.4",
+    "drupal/entity": "^1.1"
+  },
+  "require-dev": {
+
+  }
+}
