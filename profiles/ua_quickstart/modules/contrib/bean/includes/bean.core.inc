@@ -232,7 +232,7 @@ class Bean extends Entity {
   protected function setFields() {
     // NOTE: When setFields is called externally $this->data is already unserialized.
     if (!empty($this->plugin) && !empty($this->type)) {
-      $values = is_array($this->data) ? $this->data : unserialize($this->data);
+      $values = is_array($this->data) ? $this->data : unserialize((string)$this->data);
       foreach ($this->plugin->values() as $field => $default) {
         $this->$field = isset($values[$field]) ? $values[$field] : $default;
       }

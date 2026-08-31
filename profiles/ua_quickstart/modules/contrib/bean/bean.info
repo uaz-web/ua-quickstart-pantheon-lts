@@ -24,9 +24,8 @@ files[] = tests/BeanSetup.test
 files[] = tests/BeanTests.test
 files[] = tests/BeanTestPlugins.test
 files[] = tests/BeanUnitTests.test
+files[] = tests/BeanTitleOutputSanitizationTest.test
 
-; Information added by Drupal.org packaging script on 2018-08-09
-version = "7.x-1.13"
-core = "7.x"
-project = "bean"
-datestamp = "1533832989"
+version = 7.x-1.14
+project = bean
+datestamp = 1787761992

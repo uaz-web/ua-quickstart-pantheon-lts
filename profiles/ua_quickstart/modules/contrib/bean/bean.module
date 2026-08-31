@@ -1008,6 +1008,15 @@ function bean_theme() {
 }
 
 /**
+ * Implements hook_preprocess_entity().
+ */
+function bean_preprocess_entity(&$variables) {
+  if ($variables['entity_type'] === 'bean') {
+    $variables['bean']->title = filter_xss($variables['bean']->title, array('em', 'strong', 'i', 'b'));
+  }
+}
+
+/**
  * Implements hook_menu_local_tasks_alter().
  */
 function bean_menu_local_tasks_alter(&$data, $router_item, $root_path) {
