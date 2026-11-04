@@ -679,9 +679,17 @@ function cas_user_load_by_name($cas_name, $alter = FALSE, $reset = FALSE) {
     $cas_name = $cas_user['name'];
   }
 
-  $uid = db_select('cas_user')->fields('cas_user', array('uid'))->condition('cas_name', db_like($cas_name), 'LIKE')->range(0, 1)->execute()->fetchField();
-  if ($uid) {
-    return user_load($uid, $reset);
+  // Match the CAS username exactly. The database comparison is only as strict
+  // as the column's collation allows, so the candidate rows are compared again
+  // in PHP to rule out a match that differs in case or in trailing whitespace.
+  $candidates = db_select('cas_user')
+    ->fields('cas_user', array('uid', 'cas_name'))
+    ->condition('cas_name', $cas_name)
+    ->execute();
+  foreach ($candidates as $candidate) {
+    if ($candidate->cas_name === $cas_name) {
+      return user_load($candidate->uid, $reset);
+    }
   }
   return FALSE;
 }
