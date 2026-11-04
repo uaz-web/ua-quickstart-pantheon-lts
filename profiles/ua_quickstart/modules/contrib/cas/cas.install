@@ -55,6 +55,7 @@ function cas_schema() {
       'cas_name' => array(
         'type' => 'varchar',
         'length' => 128,
+        'binary' => TRUE,
         'not null' => TRUE,
         'default' => '',
         'description' => 'Unique authentication name.',
@@ -437,4 +438,20 @@ function cas_update_7104() {
       ->condition('cas_session_id', $data->cas_session_id)
       ->execute();
   }
+}
+
+/**
+ * Make {cas_user}.cas_name case sensitive.
+ */
+function cas_update_7105() {
+  db_drop_unique_key('cas_user', 'cas_name');
+  db_change_field('cas_user', 'cas_name', 'cas_name', array(
+    'type' => 'varchar',
+    'length' => 128,
+    'binary' => TRUE,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'Unique authentication name.',
+  ));
+  db_add_unique_key('cas_user', 'cas_name', array('cas_name'));
 }
